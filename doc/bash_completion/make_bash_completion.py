@@ -20,18 +20,15 @@ def get_all_options(cmd):
     cur_option = None
     opts = {}
     for line in StringIO(stdoutdata):
-        match = opt_pattern.match(line)
-        if match:
-            long_opt = match.group(2)
-            short_opt = match.group(1)
-            optional = match.group(3) == '['
+        if match := opt_pattern.match(line):
+            short_opt = match[1]
+            optional = match[3] == '['
             if cur_option:
                 opts[cur_option.long_opt] = cur_option
+            long_opt = match[2]
             cur_option = Option(long_opt, short_opt, optional)
-        else:
-            match = values_pattern.match(line)
-            if match:
-                cur_option.values = match.group(1).split(', ')
+        elif match := values_pattern.match(line):
+            cur_option.values = match[1].split(', ')
     if cur_option:
         opts[cur_option.long_opt] = cur_option
 
@@ -103,11 +100,11 @@ _aria2c()
                      '--console-log-level']:
         opt = opts[long_opt]
         output_value_case(out, opt.long_opt, opt.values)
-    # Complete directory
-    dir_opts = []
-    for opt in opts.itervalues():
-        if opt.values and opt.values[0] == '/path/to/directory':
-            dir_opts.append(opt)
+    dir_opts = [
+        opt
+        for opt in opts.itervalues()
+        if opt.values and opt.values[0] == '/path/to/directory'
+    ]
     # Complete file
     output_value_case_dir_comp(out,'|'.join([opt.long_opt for opt in dir_opts]))
     # Complete specific file type

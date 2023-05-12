@@ -42,10 +42,10 @@ class FunctionDoc:
         self.domain = domain
 
     def write(self, out):
-        print('''.. {}:: {}'''.format(self.domain, self.name))
+        print(f'''.. {self.domain}:: {self.name}''')
         print()
         for line in self.content:
-            print('    {}'.format(line))
+            print(f'    {line}')
 
 class TypedefDoc:
     def __init__(self, name, content):
@@ -53,10 +53,10 @@ class TypedefDoc:
         self.content = content
 
     def write(self, out):
-        print('''.. type:: {}'''.format(self.name))
+        print(f'''.. type:: {self.name}''')
         print()
         for line in self.content:
-            print('    {}'.format(line))
+            print(f'    {line}')
 
 class StructDoc:
     def __init__(self, name, content, domain, members, member_domain):
@@ -67,41 +67,39 @@ class StructDoc:
         self.member_domain = member_domain
 
     def write(self, out):
-        if self.name:
-            print('''.. {}:: {}'''.format(self.domain, self.name))
-            print()
-            for line in self.content:
-                print('    {}'.format(line))
-            print()
-            for name, content in self.members:
-                name = name.strip()
-                # For function (e.g., int foo())
-                m = re.match(r'(.+)\s+([^ ]+\(.*)', name)
-                if not m:
-                    # For variable (e.g., bool a)
-                    m = re.match(r'(.+)\s+([^ ]+)', name)
-                if m:
-                    print('''    .. {}:: {} {}::{}'''.format(
-                        'function' if name.endswith(')') else self.member_domain,
-                        m.group(1),
-                        self.name,
-                        m.group(2)))
-                else:
-                    if name.endswith(')'):
+        if not self.name:
+            return
+        print(f'''.. {self.domain}:: {self.name}''')
+        print()
+        for line in self.content:
+            print(f'    {line}')
+        print()
+        for name, content in self.members:
+            name = name.strip()
+            # For function (e.g., int foo())
+            m = re.match(r'(.+)\s+([^ ]+\(.*)', name)
+            if not m:
+                # For variable (e.g., bool a)
+                m = re.match(r'(.+)\s+([^ ]+)', name)
+            if m:
+                print(
+                    f'''    .. {'function' if name.endswith(')') else self.member_domain}:: {m[1]} {self.name}::{m[2]}'''
+                )
+            elif name.endswith(')'):
                         # For function, without return type, like
                         # constructor
-                        print('''    .. {}:: {}::{}'''.format(
-                            'function' if name.endswith(')') else self.member_domain,
-                            self.name, name))
-                    else:
+                print(
+                    f'''    .. {'function' if name.endswith(')') else self.member_domain}:: {self.name}::{name}'''
+                )
+            else:
                         # enum
-                        print('''    .. {}:: {}'''.format(
-                            'function' if name.endswith(')') else self.member_domain,
-                            name))
-                print()
-                for line in content:
-                    print('''        {}'''.format(line))
+                print(
+                    f'''    .. {'function' if name.endswith(')') else self.member_domain}:: {name}'''
+                )
             print()
+            for line in content:
+                print(f'''        {line}''')
+        print()
 
 class MacroDoc:
     def __init__(self, name, content):
@@ -109,10 +107,10 @@ class MacroDoc:
         self.content = content
 
     def write(self, out):
-        print('''.. macro:: {}'''.format(self.name))
+        print(f'''.. macro:: {self.name}''')
         print()
         for line in self.content:
-            print('    {}'.format(line))
+            print(f'    {line}')
 
 def make_api_ref(infiles):
     macros = []
@@ -173,8 +171,7 @@ def process_enum(infile):
             items = line.split()
             member_name = items[0].rstrip(',')
             if len(items) >= 3:
-                member_content.insert(0, '(``{}``) '\
-                                          .format(items[2].rstrip(',')))
+                member_content.insert(0, f"(``{items[2].rstrip(',')}``) ")
             members.append((member_name, member_content))
         elif line.startswith('}'):
             if not enum_name:
@@ -182,9 +179,8 @@ def process_enum(infile):
             enum_name = re.sub(r';$', '', enum_name)
             break
         elif not enum_name:
-            m = re.match(r'^\s*enum\s+([\S]+)\s*{\s*', line)
-            if m:
-                enum_name = m.group(1)
+            if m := re.match(r'^\s*enum\s+([\S]+)\s*{\s*', line):
+                enum_name = m[1]
     return StructDoc(enum_name, content, 'type', members, 'c:macro')
 
 def process_struct(infile):
@@ -206,20 +202,16 @@ def process_struct(infile):
         elif line.startswith('}') or\
                 (line.startswith('typedef ') and line.endswith(';\n')):
             if not struct_name:
-                if line.startswith('}'):
-                    index = 1
-                else:
-                    index = 3
+                index = 1 if line.startswith('}') else 3
                 struct_name = line.rstrip().split()[index]
             struct_name = re.sub(r';$', '', struct_name)
             break
         elif not struct_name:
-            m = re.match(r'^\s*(struct|class)\s+([\S]+)\s*(?:{|;)', line)
-            if m:
-                domain = m.group(1)
+            if m := re.match(r'^\s*(struct|class)\s+([\S]+)\s*(?:{|;)', line):
+                domain = m[1]
                 if domain == 'struct':
                     domain = 'type'
-                struct_name = m.group(2)
+                struct_name = m[2]
                 if line.endswith(';\n'):
                     break
     return StructDoc(struct_name, content, domain, members, 'member')
@@ -229,9 +221,7 @@ def process_function(domain, infile):
     func_proto = []
     while True:
         line = infile.readline()
-        if not line:
-            break
-        elif line == '\n':
+        if not line or line == '\n':
             break
         else:
             func_proto.append(line)
@@ -245,9 +235,7 @@ def process_typedef(infile):
     lines = []
     while True:
         line = infile.readline()
-        if not line:
-            break
-        elif line == '\n':
+        if not line or line == '\n':
             break
         else:
             lines.append(line)
